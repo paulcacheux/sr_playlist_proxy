@@ -1,22 +1,31 @@
 use actix_web::{web, App, HttpRequest, HttpResponse, HttpServer};
+use reqwest::Url;
 
-async fn fetch(url: &str) -> Result<String, Box<dyn std::error::Error>> {
+async fn fetch_url(url: Url) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
     let response = reqwest::get(url).await?;
-    let body = response.text().await?;
-    Ok(body)
+    let body = response.bytes().await?;
+    Ok(body.into_iter().collect())
 }
 
-async fn index(_req: HttpRequest) -> HttpResponse {
-    let now = std::time::Instant::now();
+async fn index(base_url: web::Data<Url>, req: HttpRequest) -> HttpResponse {
+    let target_url = match base_url.join(req.path()) {
+        Ok(url) => url,
+        Err(err) => {
+            eprintln!("URL building error {}", err);
+            return HttpResponse::BadRequest().finish();
+        }
+    };
 
-    let body =
-        fetch("https://bitdash-a.akamaihd.net/content/MI201109210084_1/m3u8s/f08e80da-bf1d-4e3d-8899-f0f6155f6efa.m3u8")
-            .await;
+    println!("[IN] {}", target_url);
+
+    let now = std::time::Instant::now();
+    let body = fetch_url(target_url.clone()).await;
+    let elapsed_ms = now.elapsed().as_millis();
 
     match body {
         Ok(body) => {
-            println!("request time: {} ms", now.elapsed().as_millis());
-            HttpResponse::Ok().content_type("image/jpeg").body(body)
+            println!("[OUT] {} ({}ms)", target_url, elapsed_ms);
+            HttpResponse::Ok().body(body)
         }
         Err(err) => {
             eprintln!("Error: {:?}", err);
@@ -25,20 +34,41 @@ async fn index(_req: HttpRequest) -> HttpResponse {
     }
 }
 
-#[actix_web::main]
-async fn main() -> std::io::Result<()> {
-    let url = if let Some(url) = std::env::args().nth(1) {
+fn parse_url_from_args() -> Result<Url, &'static str> {
+    let url_str = if let Some(url) = std::env::args().nth(1) {
         url
     } else {
-        eprintln!("Please provide an URL for the base of the playlist");
-        std::process::exit(1);
+        return Err("Please provide an URL for the base of the playlist");
     };
 
-    println!("URL: {}", url);
-    let port = 3000;
+    let url = if let Ok(url) = reqwest::Url::parse(&url_str) {
+        url
+    } else {
+        return Err("Cannot parse the provided URL");
+    };
 
-    HttpServer::new(|| App::new().service(web::resource("/").to(index)))
-        .bind(("127.0.0.1", port))?
-        .run()
-        .await
+    Ok(url)
+}
+
+#[actix_web::main]
+async fn main() -> std::io::Result<()> {
+    let url = match parse_url_from_args() {
+        Ok(url) => url,
+        Err(msg) => {
+            eprintln!("{}", msg);
+            std::process::exit(1);
+        }
+    };
+    println!("Loading base URL: {}", url);
+
+    let base_url = web::Data::new(url);
+
+    HttpServer::new(move || {
+        App::new()
+            .app_data(base_url.clone())
+            .default_service(web::route().to(index))
+    })
+    .bind(("127.0.0.1", 3000))?
+    .run()
+    .await
 }
