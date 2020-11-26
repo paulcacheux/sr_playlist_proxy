@@ -2,6 +2,8 @@ use actix_web::{web, App, HttpRequest, HttpResponse, HttpServer};
 use colored::Colorize;
 use reqwest::Url;
 
+mod type_guesser;
+
 async fn fetch_url(url: Url) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
     let response = reqwest::get(url).await?;
     let body = response.bytes().await?;
@@ -17,7 +19,19 @@ async fn index(base_url: web::Data<Url>, req: HttpRequest) -> HttpResponse {
         }
     };
 
-    println!("{} {}", "[IN]".red(), target_url.to_string().purple());
+    let guessed_file_type = type_guesser::guess_file_type(req.path());
+    let guessed_info_str = guessed_file_type
+        .as_ref()
+        .map(type_guesser::FileType::uppercase_string)
+        .map(|ft| format!("[{}]", ft))
+        .unwrap_or_default();
+
+    println!(
+        "{}{} {}",
+        "[IN]".red(),
+        guessed_info_str.red(),
+        target_url.to_string().purple()
+    );
 
     let now = std::time::Instant::now();
     let body = fetch_url(target_url.clone()).await;
@@ -27,8 +41,9 @@ async fn index(base_url: web::Data<Url>, req: HttpRequest) -> HttpResponse {
         Ok(body) => {
             let elapsed_str = format!("({}ms)", elapsed_ms);
             println!(
-                "{} {} {}",
+                "{}{} {} {}",
                 "[OUT]".red(),
+                guessed_info_str.red(),
                 target_url.to_string().purple(),
                 elapsed_str.purple()
             );
