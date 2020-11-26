@@ -1,4 +1,5 @@
 use actix_web::{web, App, HttpRequest, HttpResponse, HttpServer};
+use colored::Colorize;
 use reqwest::Url;
 
 async fn fetch_url(url: Url) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
@@ -11,12 +12,12 @@ async fn index(base_url: web::Data<Url>, req: HttpRequest) -> HttpResponse {
     let target_url = match base_url.join(req.path()) {
         Ok(url) => url,
         Err(err) => {
-            eprintln!("URL building error {}", err);
+            eprintln!("URL building error: {}", err);
             return HttpResponse::BadRequest().finish();
         }
     };
 
-    println!("[IN] {}", target_url);
+    println!("{} {}", "[IN]".red(), target_url.to_string().purple());
 
     let now = std::time::Instant::now();
     let body = fetch_url(target_url.clone()).await;
@@ -24,7 +25,13 @@ async fn index(base_url: web::Data<Url>, req: HttpRequest) -> HttpResponse {
 
     match body {
         Ok(body) => {
-            println!("[OUT] {} ({}ms)", target_url, elapsed_ms);
+            let elapsed_str = format!("({}ms)", elapsed_ms);
+            println!(
+                "{} {} {}",
+                "[OUT]".red(),
+                target_url.to_string().purple(),
+                elapsed_str.purple()
+            );
             HttpResponse::Ok().body(body)
         }
         Err(err) => {
