@@ -1,8 +1,10 @@
 use actix_web::{web, App, HttpRequest, HttpResponse, HttpServer};
 use colored::Colorize;
 use reqwest::Url;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 mod type_guesser;
+use type_guesser::FileType;
 
 async fn fetch_url(url: Url) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
     let response = reqwest::get(url).await?;
@@ -10,7 +12,11 @@ async fn fetch_url(url: Url) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
     Ok(body.into_iter().collect())
 }
 
-async fn index(base_url: web::Data<Url>, req: HttpRequest) -> HttpResponse {
+async fn index(
+    base_url: web::Data<Url>,
+    is_reading_segments: web::Data<AtomicBool>,
+    req: HttpRequest,
+) -> HttpResponse {
     let target_url = match base_url.join(req.path()) {
         Ok(url) => url,
         Err(err) => {
@@ -20,9 +26,23 @@ async fn index(base_url: web::Data<Url>, req: HttpRequest) -> HttpResponse {
     };
 
     let guessed_file_type = type_guesser::guess_file_type(req.path());
+    match (
+        guessed_file_type,
+        is_reading_segments.load(Ordering::SeqCst),
+    ) {
+        (Some(FileType::Manifest), true) => {
+            println!("{}", "[TRACK SWITCH]".red());
+            is_reading_segments.store(false, Ordering::SeqCst);
+        }
+        (Some(FileType::Segment), _) => {
+            is_reading_segments.store(true, Ordering::SeqCst);
+        }
+        _ => {}
+    }
+
     let guessed_info_str = guessed_file_type
         .as_ref()
-        .map(type_guesser::FileType::uppercase_string)
+        .map(FileType::uppercase_string)
         .map(|ft| format!("[{}]", ft))
         .unwrap_or_default();
 
@@ -84,10 +104,12 @@ async fn main() -> std::io::Result<()> {
     println!("Loading base URL: {}", url);
 
     let base_url = web::Data::new(url);
+    let is_reading_segments = web::Data::new(AtomicBool::new(false));
 
     HttpServer::new(move || {
         App::new()
             .app_data(base_url.clone())
+            .app_data(is_reading_segments.clone())
             .default_service(web::route().to(index))
     })
     .bind(("127.0.0.1", 3000))?
