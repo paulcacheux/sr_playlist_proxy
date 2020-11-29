@@ -8,6 +8,7 @@ use reqwest::Url;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 mod type_guesser;
+mod url_rewriting;
 use type_guesser::FileType;
 
 /// Fetch and returns the body of the remote content at `url`
@@ -15,6 +16,31 @@ async fn fetch_url(url: Url) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
     let response = reqwest::get(url).await?;
     let body = response.bytes().await?;
     Ok(body.into_iter().collect())
+}
+
+fn build_target_url(base_url: &Url, path: &str) -> Result<Url, Box<dyn std::error::Error>> {
+    let mut path_iter = path.split("/").peekable();
+
+    // skip the first segment if it is empty
+    if let Some(&"") = path_iter.peek() {
+        path_iter.next();
+    }
+
+    path_iter.peek();
+    match path_iter.next() {
+        Some(seg) if seg == url_rewriting::URL_REWRITING_PREFIX => {
+            if let Some(b64_url) = path_iter.next() {
+                let url_bytes = base64::decode_config(b64_url, base64::URL_SAFE)?;
+                let url_str = String::from_utf8(url_bytes)?;
+                let url = Url::parse(&url_str)?;
+                return Ok(url);
+            }
+        }
+        _ => {}
+    }
+
+    let url = base_url.join(path)?;
+    Ok(url)
 }
 
 /// Route used to proxy request to `base_url`
@@ -29,7 +55,7 @@ async fn index(
     is_reading_segments: web::Data<AtomicBool>,
     req: HttpRequest,
 ) -> HttpResponse {
-    let target_url = match base_url.join(req.path()) {
+    let target_url = match build_target_url(base_url.as_ref(), req.path()) {
         Ok(url) => url,
         Err(err) => {
             eprintln!("URL building error: {}", err);
@@ -71,6 +97,15 @@ async fn index(
 
     match body {
         Ok(body) => {
+            let body = match (guessed_file_type, String::from_utf8(body.clone())) {
+                (Some(FileType::Manifest), Ok(body_str)) => {
+                    url_rewriting::rewrite_manifest(&body_str)
+                        .as_bytes()
+                        .to_vec()
+                }
+                _ => body,
+            };
+
             let elapsed_str = format!("({}ms)", elapsed_ms);
             println!(
                 "{}{} {} {}",

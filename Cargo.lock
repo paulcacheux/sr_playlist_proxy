@@ -1631,6 +1631,7 @@ name = "sr_playlist_proxy"
 version = "0.1.0"
 dependencies = [
  "actix-web",
+ "base64",
  "colored",
  "reqwest",
 ]
