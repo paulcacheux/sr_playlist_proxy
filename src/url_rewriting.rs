@@ -2,7 +2,6 @@
 //! containing only relative URLs. The relative URLs contain the original URLs as a path segment
 //! after a prefix segment.
 
-use base64;
 use reqwest::Url;
 
 /// The prefix segment constant
@@ -35,7 +34,7 @@ pub fn rewrite_manifest(manifest_content: &str) -> String {
             continue;
         }
 
-        if line.trim_start().starts_with("#") {
+        if line.trim_start().starts_with('#') {
             result.push_str(line);
         } else {
             match rewrite_url(line) {

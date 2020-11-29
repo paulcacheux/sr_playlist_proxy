@@ -20,7 +20,7 @@ async fn fetch_url(url: Url) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
 
 /// Returns the final target URL, the one linking to the actual media
 fn build_target_url(base_url: &Url, path: &str) -> Result<Url, Box<dyn std::error::Error>> {
-    let mut path_iter = path.split("/").peekable();
+    let mut path_iter = path.split('/').peekable();
 
     // skip the first segment if it is empty
     if let Some(&"") = path_iter.peek() {
