@@ -1,3 +1,7 @@
+//! Playlist proxy between a media player and a remote playlist/media server
+
+#![warn(missing_docs)]
+
 use actix_web::{web, App, HttpRequest, HttpResponse, HttpServer};
 use colored::Colorize;
 use reqwest::Url;
@@ -6,12 +10,20 @@ use std::sync::atomic::{AtomicBool, Ordering};
 mod type_guesser;
 use type_guesser::FileType;
 
+/// Fetch and returns the body of the remote content at `url`
 async fn fetch_url(url: Url) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
     let response = reqwest::get(url).await?;
     let body = response.bytes().await?;
     Ok(body.into_iter().collect())
 }
 
+/// Route used to proxy request to `base_url`
+///
+/// # Arguments
+/// Arguments are passed via actix data system
+/// * `base_url` - Base url of the real data location
+/// * `is_reading_segments` - Boolean representing the current state of reading, `true` if segments are currently being read
+/// * `req` - The HTTP Request
 async fn index(
     base_url: web::Data<Url>,
     is_reading_segments: web::Data<AtomicBool>,
@@ -76,6 +88,10 @@ async fn index(
     }
 }
 
+/// Returns the `base_url` from the command line arguments
+///
+/// # Errors
+/// If no URL was provided in the command line or if the URL cannot be parsed this function will return an error
 fn parse_url_from_args() -> Result<Url, &'static str> {
     let url_str = if let Some(url) = std::env::args().nth(1) {
         url
