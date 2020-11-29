@@ -18,6 +18,7 @@ async fn fetch_url(url: Url) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
     Ok(body.into_iter().collect())
 }
 
+/// Returns the final target URL, the one linking to the actual media
 fn build_target_url(base_url: &Url, path: &str) -> Result<Url, Box<dyn std::error::Error>> {
     let mut path_iter = path.split("/").peekable();
 

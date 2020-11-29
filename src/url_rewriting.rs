@@ -1,8 +1,18 @@
+//! Module containing the logic to convert manifests containing absolute URLs to manifests
+//! containing only relative URLs. The relative URLs contain the original URLs as a path segment
+//! after a prefix segment.
+
 use base64;
 use reqwest::Url;
 
+/// The prefix segment constant
 pub const URL_REWRITING_PREFIX: &str = "relative_to_absolute_proxy_path";
 
+/// Returns a new relative URL from an absolute one, containing the original URL as a path segment
+///
+/// # Errors
+///
+/// This function returns an error if the given URL is relative
 pub fn rewrite_url(url: &str) -> Result<String, Box<dyn std::error::Error>> {
     let url = Url::parse(url)?; // this won't parse a relative URL
 
@@ -16,6 +26,7 @@ pub fn rewrite_url(url: &str) -> Result<String, Box<dyn std::error::Error>> {
     ))
 }
 
+/// Returns a new manifest with only relative URLs
 pub fn rewrite_manifest(manifest_content: &str) -> String {
     let mut result = String::new();
 

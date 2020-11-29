@@ -5,6 +5,11 @@ Media/Playlist Proxy - Technical Test
 
 This project is a media proxy between a media player (VLC for example) and the actual media server.
 
+## Absolute URLs rewriting
+
+Absolute URLs would normally exit the proxy simply because the media player would connect directly to the new base URL.
+To manage this, the proxy will rewrite the playlist URLs with relative ones, containing the original URL as a base64 path segment, following a trigger segment that should be unique enough (`relative_to_absolute_proxy_path` by default).
+
 ## Dependencies
 - Rust
 
