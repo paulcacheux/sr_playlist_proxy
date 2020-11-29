@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 /// The `FileType` type. Represents the different kind of files that can be reached from a m3u playlist.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FileType {
     /// A Manifest file
     Manifest,
@@ -37,5 +37,30 @@ pub fn guess_file_type(path: &str) -> Option<FileType> {
         }
     } else {
         None
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_file_type_uppercase() {
+        assert_eq!(FileType::Manifest.uppercase_string(), "MANIFEST");
+        assert_eq!(FileType::Segment.uppercase_string(), "SEGMENT");
+    }
+
+    #[test]
+    fn test_guess_file_type() {
+        assert_eq!(guess_file_type("test.m3u8"), Some(FileType::Manifest));
+        assert_eq!(guess_file_type("test.m3u"), Some(FileType::Manifest));
+        assert_eq!(guess_file_type("test.ts"), Some(FileType::Segment));
+        assert_eq!(guess_file_type("test.pdf"), None);
+
+        assert_eq!(guess_file_type("/test.m3u8"), Some(FileType::Manifest));
+        assert_eq!(
+            guess_file_type("https://test.io/test.m3u8"),
+            Some(FileType::Manifest)
+        );
     }
 }
