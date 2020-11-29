@@ -47,3 +47,35 @@ pub fn rewrite_manifest(manifest_content: &str) -> String {
 
     result
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_rewrite_url() {
+        assert!(rewrite_url("/test.m3u").is_err());
+        assert_eq!(
+            rewrite_url("http://test.test/test.ts").map_err(|_| ()),
+            Ok(
+                "/relative_to_absolute_proxy_path/aHR0cDovL3Rlc3QudGVzdC90ZXN0LnRz/test.ts"
+                    .to_string()
+            )
+        );
+    }
+
+    #[test]
+    fn test_rewrite_manifest() {
+        let input_manifest = "
+#EXINF TEST
+/test.m3u
+http://test.test/test.ts
+        ";
+
+        let expected_result = "#EXINF TEST
+/test.m3u
+/relative_to_absolute_proxy_path/aHR0cDovL3Rlc3QudGVzdC90ZXN0LnRz/test.ts\n";
+
+        assert_eq!(rewrite_manifest(input_manifest), expected_result);
+    }
+}
