@@ -1,3 +1,5 @@
+//! Module used for the `FileType` guessing from URLs
+
 use std::path::PathBuf;
 
 /// The `FileType` type. Represents the different kind of files that can be reached from a m3u playlist.
